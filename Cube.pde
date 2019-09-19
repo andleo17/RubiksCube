@@ -1,100 +1,185 @@
 class Cube {
 
-    CubePiece[][][] pieces = new CubePiece[3][3][3];
-    private boolean rotating;
-    private final float step = PI/64;
-    private float currentRotation;
-    private PVector currentFace;
-    private float currentStep;
+  private int length;
+  private Cubie[][][] cubes = new Cubie[3][3][3];
+  private int angle = 0;
+  private Cubie[][] rotatingSide = null;
+  private boolean clockwise = false;
+  private Side side;
+  private boolean rotate = false;
+  private int threshold = 50;
+  private int shuffle = 0;
+  private int rotateSpeed = 5;
+  private int shuffleSpeed = 15;
+  
+  public Solver solve = new Solver();
 
-    public Cube() {
-        for (int i = -1; i < 2; i++) {
-            for (int j = -1; j < 2; j++) {
-                for (int k = -1; k < 2; k++) {
-                    CubePiece piece = new CubePiece(new PVector(i*2*R, j*2*R, k*2*R));
-                    pieces[i+1][j+1][k+1] = piece;
-                }
-            }
+  public Cube(int length) {
+    this.length = length;
+    this.init();
+  }
+
+  public void init() {
+    int index = 0;
+    for (int i=0; i<3; i++) {
+      for (int j=0; j<3; j++) {
+        for (int k=0; k<3; k++) {
+          index++;
+          float offset = (3 * length) / 2 - length / 2;
+          float x = length * i - offset;
+          float y = length * j - offset;
+          float z = length * k - offset;
+          if ( cubes[i][j][k] == null) {
+            cubes[i][j][k] = new Cubie(x, y, z, length, index);
+          } else {
+            cubes[i][j][k].setPoint(new PVector(x, y, z));
+          }
         }
+      }
     }
-    public void show() {
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces[i].length; j++) {
-                for (int k = 0; k < pieces[i][j].length; k++) {
-                    pieces[i][j][k].show();
-                }
-            }
+  }
+
+  public void shuffle() {
+    this.shuffle = threshold;
+    Side lado = randomSide();
+    boolean sentido = ((int)random(100)) % 2 == 0;
+    this.rotateSide(lado, sentido);
+    cube.solve.agregarMovimientos(lado, sentido);
+  }
+  
+  public void metodo1() {
+   solve.iterador = solve.sides.size() - 1; 
+   cube.rotateSide(solve.sides.get(solve.iterador), solve.sentidos.get(solve.iterador));
+  }
+
+  public Side randomSide() {
+    Side[] sides = Side.values();
+    return sides[(int)random(sides.length - 1)];
+  }
+
+
+  public void rotateSide(Side side, boolean clockwise) {
+    this.rotatingSide  = getCubes(side);
+    this.rotate = true;
+    this.clockwise = clockwise;
+    this.side = side;
+  }
+
+  private Cubie[][] getCubes(Side side) {
+    Cubie[][] c = new Cubie[3][3];
+    for (int i=0; i<3; i++) {
+      for (int j=0; j<3; j++) {
+        switch(side) {
+        case U:
+          c[i][j] = cubes[i][0][j];
+          break;
+        case D:
+          c[i][j] = cubes[i][2][j];
+          break;
+        case F:
+          c[i][j] = cubes[i][j][2];
+          break;
+        case B:
+          c[i][j] = cubes[i][j][0];
+          break;
+        case L:
+          c[i][j] = cubes[0][i][j];
+          break;
+        case R:
+          c[i][j] = cubes[2][i][j];
+          break;
         }
+      }
     }
-    public void update() {
-        if (rotating) {
-            turnCubes(currentFace, currentStep);
+    return c;
+  }
 
-            if (currentRotation >= HALF_PI || currentRotation <= -HALF_PI) {
-                rotating = false;
-                currentFace = null;
-                currentRotation = 0;
-            }
+  private void rotate() {
+    for (int i=0; i<3; i++) {
+      for (int j=0; j<3; j++) {
+        int[] pos = calculatePosition(i, j, side == Side.U || side == Side.D ? clockwise : !clockwise);     
+        Cubie cubie = rotatingSide[pos[0]][pos[1]];
+        cubie.rotate(side, clockwise);
+        switch(side) {
+        case U:
+          cubes[i][0][j] = cubie;
+          break;
+        case D:
+          cubes[i][2][j] = cubie;
+          break;
+        case F:
+          cubes[i][j][2] = cubie;
+          break;
+        case B:
+          cubes[i][j][0] = cubie;
+          break;
+        case L:
+          cubes[0][i][j] = cubie;
+          break;
+        case R:
+          cubes[2][i][j] = cubie;
+          break;
         }
+      }
     }
-    public void turn(PVector axis, int direction) {
-        if (!rotating) {
-            currentRotation = 0;
-            currentFace = axis;
-            currentStep = step * direction;
-            rotating = true;
+    this.init();
+  }
+
+  private int[] calculatePosition(int i, int j, boolean clockwise) {
+    return clockwise ? new int[]{3 - j - 1, i} : new int[]{j, 3 - i - 1};
+  }
+
+
+  public void show() {
+    if ( rotate ) {
+      angle += (shuffle > 0 || solve.iterador > 0 ? shuffleSpeed : rotateSpeed);
+      if ( angle % 90 ==  0) {
+        rotate = false;
+        angle = 0;
+        rotate();
+      }
+      for (int i=0; i<cubes.length; i++) {
+        for (int j=0; j<cubes[i].length; j++) {
+          Cubie c = rotatingSide[i][j];
+          float rotate = clockwise ? angle : -angle;
+          switch(side) {
+          case U:
+          case D:
+            c.yRotate = rotate;
+            break;
+          case F:
+          case B:
+            c.zRotate = rotate;
+            break;
+          case L:
+          case R:
+            c.xRotate = rotate;
+            break;
+          }
         }
-    }
-
-    private void turnCubes(PVector axis, float angle) {
-        CubePiece cube;
-        PVector centerCopy;
-
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                for (int k = 0; k < 3; k++) {
-                    cube = pieces[i][j][k];
-                    centerCopy = cube.center.copy();
-
-                    if (axis == PX && round(cube.center.x) == axis.x * R * 2) {
-                        cube.center.y = centerCopy.y*cos(angle) - centerCopy.z*sin(angle);
-                        cube.center.z = centerCopy.y*sin(angle) + centerCopy.z*cos(angle);
-
-                        cube.turnFaces(axis, angle);
-                    } else if (axis == PY && round(cube.center.y) == PY.y * R * 2) {
-
-                        cube.center.z = centerCopy.z*cos(angle) - centerCopy.x*sin(angle);
-                        cube.center.x = centerCopy.z*sin(angle) + centerCopy.x*cos(angle);
-
-                        cube.turnFaces(axis, angle);
-                    } else if (axis == PZ && round(cube.center.z) == PZ.z * R * 2) {
-
-                        cube.center.x = centerCopy.x*cos(angle) - centerCopy.y*sin(angle);
-                        cube.center.y = centerCopy.x*sin(angle) + centerCopy.y*cos(angle);
-
-                        cube.turnFaces(axis, angle);
-                    } else if (axis == NX && round(cube.center.x) == NX.x * 2 * R) {
-
-                        cube.center.y = centerCopy.y*cos(angle) + centerCopy.z*sin(angle);
-                        cube.center.z = -centerCopy.y*sin(angle) + centerCopy.z*cos(angle);
-
-                        cube.turnFaces(axis, angle);
-                    } else if (axis == NY && round(cube.center.y) == NY.y * R * 2) {                      
-
-                        cube.center.z = centerCopy.z*cos(angle) + centerCopy.x*sin(angle);
-                        cube.center.x = -centerCopy.z*sin(angle) + centerCopy.x*cos(angle);
-
-                        cube.turnFaces(axis, angle);
-                    } else if (axis == NZ && round(cube.center.z) == NZ.z * R * 2) {
-
-                        cube.center.x = centerCopy.x*cos(angle) + centerCopy.y*sin(angle);
-                        cube.center.y = -centerCopy.x*sin(angle) + centerCopy.y*cos(angle);
-
-                        cube.turnFaces(axis, angle);
-                    }
-                }
-            }
+      }
+      angle = angle % 360;
+      if (angle % 90 == 0) {
+        if ( shuffle > 0) {
+          Side lado = randomSide();
+          boolean sentido = ((int)random(100)) % 2 == 0;
+          this.rotateSide(lado, sentido);
+          cube.solve.agregarMovimientos(lado, sentido);
+          shuffle--;
         }
-        currentRotation += angle;
+        if (solve.iterador > 0) {
+          solve.iterador--; 
+          cube.rotateSide(solve.sides.get(solve.iterador), solve.sentidos.get(solve.iterador));
+          solve.eliminarMovimientos();
+        }
+      }
     }
+    for (int i=0; i<3; i++) {
+      for (int j=0; j<3; j++) {
+        for (int k=0; k<3; k++) {
+          cubes[i][j][k].show();
+        }
+      }
+    }
+  }
 }
